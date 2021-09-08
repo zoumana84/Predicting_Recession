@@ -1,0 +1,1092 @@
+---
+title: "PCoulibaly: Final Project"
+output: html_notebook
+---
+
+```{r}
+
+recession = read.csv("africa_recession.csv", stringsAsFactors = TRUE)
+
+
+```
+
+# Section 1. Data Cleaning
+
+1. The recession data frame has 486 observations with 50 variables. All the variables are continuous variables except the target variable growthbucket which is a categorical variable. The 0 in the target variable represent a "no" while a "1" is a yes for recession based on the data description.
+
+```{r}
+
+str(recession)
+
+
+
+```
+ 
+The summary of the data frame confirms the number of observation and number of variables as well as the fact that all the variables are continuous except the target variable growthbucket
+ 
+```{r}
+
+summary(recession)
+
+```
+
+2. It appears that there are no missing values in this data set.
+
+```{r}
+
+colSums(is.na(recession))
+
+```
+
+It is not unusual for NA to be entered as "?". Checking for those in the data set confirms that the rows are pretty clean when it comes to missing values.
+
+```{r}
+
+colSums(recession == "?")
+
+```
+
+3. Since the target variable is a categorical variable, for simplicity of read I will change the variable to a 2 level factor. I will revert the change when training the ANN model. The 0 to a "no" and the 1 to a "yes". A "no" level means there is no recession in that particular country while a "yes" would mean there is a recession.
+
+```{r}
+
+recession$growthbucket = ifelse(recession$growthbucket == 0, "no", "yes")
+recession$growthbucket = as.factor(recession$growthbucket)
+
+
+```
+
+#Section 2. Data Exploration
+
+4. It is clear that the outcome variable is imbalanced having 92.1% of no response and 7.8% of yes. The imbalance issue will be addressed before training our models.
+
+```{r}
+table(recession$growthbucket)
+prop.table(table(recession$growthbucket)) *100
+
+
+```
+
+5. I am going to examine the relationship between the outcome variable and all continous variables. A set of side by side box plots will be used for that purpose. I will also use a manova test to examine that relationship.
+
+```{r}
+
+install.packages("psych")
+library(psych)
+attach(recession)
+
+
+
+```
+
+
+a. The observations from the box plots observations indicates there might be a slight difference with hc, and a            significant difference with emp_to_pop_ratio, cwtfp and ctfp.
+
+```{r}
+
+par(mfcol=c(3,4))
+plot(pop ~ growthbucket, main = "pop")
+plot(emp ~ growthbucket, main = "emp")
+plot(emp_to_pop_ratio ~ growthbucket, main = "emp_to_pop_ratio")
+plot(hc ~ growthbucket, main = "hc")
+plot(ccon ~ growthbucket, main = "ccon")
+plot(cda ~ growthbucket, main = "cda")
+plot(cn ~ growthbucket, main = "cn")
+plot(ck ~ growthbucket, main = "ck")
+plot(ctfp ~ growthbucket, main = "ctfp")
+plot(cwtfp ~ growthbucket, main = "cwtfp")
+
+```
+
+b. However, the t-test determines that hc and emp_to_pop_ratio do not have a significance due to their p-value being      over 0.05. Only ctfp and cwtfp have a confirmed significant difference.
+ 
+```{r}
+
+test1 = manova(cbind(pop, emp, emp_to_pop_ratio, hc, ccon, cda, cn, ck, ctfp, cwtfp) ~ growthbucket, data = recession)
+
+summary.aov(test1)
+
+```
+
+c. There are slight differences between growthbucket and labsh, rwtfpna, delta.
+
+```{r}
+
+par(mfcol=c(3,4))
+plot(rconna ~ growthbucket, main = "rconna")
+plot(rdana ~ growthbucket, main = "rdana")
+plot(rnna ~ growthbucket, main = "rnna")
+plot(rkna ~ growthbucket, main = "rkna")
+plot(rtfpna ~ growthbucket, main = "rtfpna")
+plot(rwtfpna ~ growthbucket, main = "rwtfpna")
+plot(labsh ~ growthbucket, main = "labsh")
+plot(irr ~ growthbucket, main = "irr")
+plot(delta ~ growthbucket, main = "delta")
+plot(xr ~ growthbucket, main = "xr")
+
+```
+
+d. The t-test indicates only rwtfpna has a statistical difference with growthbucket.
+
+```{r}
+
+test2 = manova(cbind(rconna, rdana, rnna, rkna, rtfpna, rwtfpna, labsh, irr, delta, xr) ~ growthbucket, data = recession)
+
+summary.aov(test2)
+
+```
+
+e. There are also slight significant difference with csh_x, pl_c, csh_i, csh_m, csh_g, csh_r and the outcome variable.
+
+```{r}
+
+par(mfcol=c(3,4))
+plot(pl_con ~ growthbucket, main = "pl_con")
+plot(pl_da ~ growthbucket, main = "pl_da")
+plot(pl_gdpo ~ growthbucket, main = "pl_gdpo")
+plot(csh_c ~ growthbucket, main = "csh_c")
+plot(csh_i ~ growthbucket, main = "csh_i")
+plot(csh_g ~ growthbucket, main = "csh_g")
+plot(csh_x ~ growthbucket, main = "csh_x")
+plot(csh_m ~ growthbucket, main = "csh_m")
+plot(csh_r ~ growthbucket, main = "csh_r")
+plot(pl_c ~ growthbucket, main = "pl_c")
+
+```
+
+f. The t-test shows that only csh_g and csh_r have a statistical difference with growthbucket based on the alpha-value of being less than 0.05.
+
+```{r}
+
+test3 = manova(cbind(pl_con, pl_da, pl_gdpo, csh_c, csh_i, csh_g, csh_x, csh_m, csh_r, pl_c) ~ growthbucket, data = recession)
+
+summary.aov(test3)
+
+```
+
+g. There are slight differences with pl_i, pl_m, pl_x and metals_minerals. There appears to be a more significant difference with the rest of the features except pl_n.
+
+```{r}
+
+par(mfcol=c(3,4))
+plot(pl_i ~ growthbucket, main = "pl_i")
+plot(pl_g ~ growthbucket, main = "pl_g")
+plot(pl_x ~ growthbucket, main = "pl_x")
+plot(pl_m ~ growthbucket, main = "pl_m")
+plot(pl_n ~ growthbucket, main = "pl_n")
+plot(total ~ growthbucket, main = "total")
+plot(excl_energy ~ growthbucket, main = "excl_energy")
+plot(energy ~ growthbucket, main = "energy")
+plot(metals_minerals ~ growthbucket, main = "metals_minerals")
+plot(forestry ~ growthbucket, main = "forestry")
+
+```
+
+h. The t-test results are in accordance with the observations from the box plots in this case.
+
+```{r}
+
+test4 = manova(cbind(pl_i, pl_g, pl_x, pl_m, pl_n, total, excl_energy, energy, metals_minerals, forestry) ~ growthbucket, data = recession)
+
+summary.aov(test4)
+
+```
+
+i. The observations from the box plots indicates a slight difference with excl_energy_change, energy_change, agriculture_change, fish_change and total change. The rest of features seem to have a significant difference with the outcome variable except fish_change.
+
+```{r}
+
+par(mfcol=c(3,4))
+plot(agriculture ~ growthbucket, main = "agriculture")
+plot(fish ~ growthbucket, main = "fish")
+plot(total_change ~ growthbucket, main = "total_change")
+plot(excl_energy_change ~ growthbucket, main = "excl_energy_change")
+plot(energy_change ~ growthbucket, main = "energy_change")
+plot(metals_minerals_change ~ growthbucket, main = "metals_minerals_change")
+plot(forestry_change ~ growthbucket, main = "forestry_change")
+plot(agriculture_change ~ growthbucket, main = "agriculture_change")
+plot(fish_change ~ growthbucket, main = "fish_change")
+
+```
+
+j. The t-test shows that agriculture, forestry_change and fish_change have a statistical difference with growthbucket.
+
+```{r}
+
+test5 = manova(cbind(agriculture, fish, total_change, excl_energy_change, energy_change, metals_minerals_change, forestry_change, agriculture_change, fish_change) ~ growthbucket, data = recession)
+
+summary.aov(test5)
+
+```
+
+6. Summary of obervations:
+
+The statistical tests show that the following variables have a significant difference with the outcome variable: pl_i, pl_g, pl_x, pl_m, pl_n, total, excl_energy, energy, metals_minerals, forestry, agriculture, forestry_change, fish_change, csh_g, csh_r, rwtfpna, ctfp and cwtfp. That's 18 variables out of a total of 49 potential features. This is a high number of data to have to discard given how low the initial number of observations were. Taking the route to discard so many variables could lead to a loss of valuable information. Therefore, I decided to keep all variables to build the models.
+
+7. Let's split the data set into 80% training and 20% test. Each of the next predictive models will use a set of synthetic data created with the help of the method "smote" to address the imbalance in the outcome variable noticed on question 4.
+
+```{r echo=TRUE}
+
+library(DMwR)
+library(caret)
+
+#split the data set into training and test
+inTrain = createDataPartition(recession$growthbucket, p=0.8, list=FALSE)
+
+recession_train = recession[inTrain,] 
+recession_test = recession[-inTrain,]
+
+detach(recession)
+attach(recession_train)
+
+
+
+```
+
+#Section 3. Creating Predictive Models
+
+The classification, regularization and ensemble models will be built with the scaled numeric features performed using the "scale" method in the train function of caret. The Kappa metric will be preferred instead of accuracy because it is a better gauge of the model performance when facing class imbalance. The Area Under Curve (AUC) statistics will also be computed as a way to gauge the predictive value of the models. The False Positive Rate (FPR) and False Negative Rate (FNR) will be calculated so that to confirm how the model does in its classification ability. A new variable called aucTotal will be created for the sole purpose of keeping a tracability of each model's AUC for comparison.
+
+
+
+## Section 3.1 Classification models
+
+8. KNN model
+
+a. KNN Without PCA
+
+This KNN model will be built without using the Principal Component Analysis(PCA). The value of K selected here was 7.
+
+```{r}
+
+set.seed(1)
+
+knn_model = train(growthbucket~., data = recession_train, trControl = trainControl("cv", number=10, 
+                  sampling = "smote"),preProcess=c("center","scale"), method="knn", metric = "Kappa" )
+knn_model
+
+```
+
+Let's use the best model to predict recession. The kappa statistic is at 0.17.
+
+```{r}
+
+predictions_knn=predict(knn_model,recession_test)
+confusionMatrix(predictions_knn,recession_test$growthbucket)
+
+```
+
+The AUC points to the model being an excellent classifier and suggests a very good FPR which should be confirmed in the next set of codes.
+
+```{r}
+
+library(ROCR)
+
+#Let's compute the AUC
+knn_predictions_prob = predict(knn_model, recession_test, type="prob")
+head(knn_predictions_prob)
+pred_m_knn = prediction(knn_predictions_prob$yes,recession_test$growthbucket)
+knn_auc = performance(pred_m_knn, measure = "auc")@y.values
+knn_auc
+
+```
+
+
+```{r}
+
+#keep track of AUC
+aucTotal = cbind(knn_auc)
+
+```
+
+The FPR, number of 'no' misclassified as 'yes' is at 0.01 as hinted by the AUC. At first glance, this seems to indicate the model performed extremely well. However, the knowledge of class imbalance and the resulting kappa statistics tell the true story of how not so well this model performed.
+
+```{r}
+
+t = table(predictions_knn,recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+
+c. KNN with PCA
+
+When PCA is added to select features with the best chances of predictability, the best k is at 7.
+
+```{r}
+
+set.seed(1)
+
+knn_modelPCA = train(growthbucket~., data = recession_train, 
+                     trControl = trainControl("cv", number=10, sampling = "smote"),                                                 preProcess=c("center","scale", "pca"), method="knn", metric="Kappa")
+knn_model
+
+```
+
+Let's use the best model to predict recession. There is no change in the Kappa statistics which is still at 0.17.
+
+```{r}
+
+predictions_knnPCA = predict(knn_modelPCA,recession_test)
+confusionMatrix(predictions_knnPCA,recession_test$growthbucket)
+
+```
+
+The AUC is also high and similar to that of the KNN model without PCA.
+
+```{r}
+
+knnPCA_predictions_prob = predict(knn_modelPCA, recession_test, type="prob")
+head(knnPCA_predictions_prob)
+pred_m_knnPCA = prediction(knnPCA_predictions_prob$yes,recession_test$growthbucket)
+knnpca_auc = performance(pred_m_knnPCA, measure = "auc")@y.values
+knnpca_auc
+
+```
+
+```{r}
+
+#keep track of AUC
+aucTotal = cbind(aucTotal, knnpca_auc)
+
+
+```
+
+Logically, the FPR did not change. However, the assessment of the model performance is the same for KNN with and without PCA which is not very good. 
+
+```{r}
+t = table(predictions_knnPCA,recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+
+
+```
+
+9. Naive Bayes 
+a. Naive Bayes without PCA. 
+
+We let caret auto tune the model. It appears the auto tuned parameters were o for laplace, TRUE for usekernel and 1 for adjust.
+
+```{r}
+
+set.seed(1)
+
+nbModel = train(growthbucket~., data = recession_train, 
+                trControl = trainControl("cv", number=10, sampling = "smote"),                                                        preProcess=c("center","scale"), method="naive_bayes", metric="Kappa")
+nbModel
+
+```
+
+The kappa statistic of 0.25 is better than that of KNN with PCA.
+
+```{r}
+
+predictions_nb = predict(nbModel,recession_test)
+confusionMatrix(predictions_nb,recession_test$growthbucket)
+
+```
+
+The AUC is high but lower than that of KNN model with PCA.
+
+```{r}
+
+nb_predictions_prob = predict(nbModel, recession_test, type="prob")
+head(nb_predictions_prob)
+pred_m_nb = prediction(nb_predictions_prob$yes,recession_test$growthbucket)
+nb_auc = performance(pred_m_nb, measure = "auc")@y.values
+nb_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, nb_auc)
+
+
+```
+
+The FPR for the model is 0.01.
+
+```{r}
+
+t = table(predictions_nb,recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+b. Naive Bayes with PCA.
+
+We will also let caret auto tune the model
+
+```{r}
+
+set.seed(1)
+
+nbModelPCA = train(growthbucket~., data = recession_train, 
+                   trControl = trainControl("cv",number=10, sampling = "smote"),
+                   preProcess=c("center","scale", "pca"), method="naive_bayes", metric="Kappa")
+nbModelPCA
+
+```
+
+Adding PCA to naive bayes led to a worse performance with a Kappa statistics at 0.01.
+
+```{r}
+
+predictions_nbPCA = predict(nbModelPCA,recession_test)
+confusionMatrix(predictions_nbPCA,recession_test$growthbucket)
+
+```
+
+Logically the AUC tanked to 0.59.
+
+```{r}
+
+nbPCA_predictions_prob = predict(nbModelPCA, recession_test, type="prob")
+head(nbPCA_predictions_prob)
+pred_m_nbPCA = prediction(nbPCA_predictions_prob$yes,recession_test$growthbucket)
+nbpca_auc = performance(pred_m_nbPCA, measure = "auc")@y.values
+nbpca_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, nbpca_auc)
+
+
+```
+
+The FPR of 0.07 is high.
+
+```{r}
+t = table(predictions_nbPCA,recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+The KNN models did not perform well and showed a slight agreement between predicted and actual values. The KNN models were an improvement and showed a fair agreement between predicted and actual values. The AUC for all models and FPR so far were at good levels indicating a good ability for the 4 models to distinguish between true positive and false positives.
+The Naive bayes models with or without PCA are so far the best models with a Kappa statistics of 0.25.
+
+## Section 3.2 Regularization Models
+
+The following regularization models will not be used with PCA. This is because the coefficients show the weights for principal components instead of the original predictors. Therefore, the coefficients cannot be properly interpreted with PCA. 
+
+10. Lasso Logistic Regression with tuned hyper parameters
+
+Let's train a lasso regression model on the same train data by providing a grid of parameters from which the model will use a tuning combination from. I will use 10 folds and kappa metrics.Lambda for the final model was 0.01.
+
+
+```{r}
+
+set.seed(1)
+
+lassoModel  = train(growthbucket~., data = recession_train, 
+                    trControl= trainControl("cv", number = 10, sampling = "smote"),
+                    preProcess=c("center","scale"), method = "glmnet", metric="Kappa",
+                    tuneGrid= expand.grid(alpha = 1, lambda = 10^seq(-3, 3, length = 100)), maxit=1000000)
+
+lassoModel
+
+```
+
+The coefficients of the best tuned models show that some of the features were deemed to have low predictability value hence their coefficients were shrunk to zero.
+
+```{r}
+coef(lassoModel$finalModel, lassoModel$bestTune$lambda)
+
+```
+
+The Kappa statistics of 0.30 is an improvement when compared to the best model so far. But it still points to a model having a fair agreement between actual and predicted values. One point to note is that the model did not missclassify a no case as yes. Even though the FNR is high, the FPR of zero is desirable in our specific case given the goal we are trying to accomplish.
+
+```{r}
+#prediction on test data
+lassoPredictions  = predict(lassoModel, recession_test)
+confusionMatrix(lassoPredictions, recession_test$growthbucket)
+
+
+```
+
+The AUC is the highest at 0.89 and tells that the model is very close to being an outstanding classifier when it comes to distinguising between true and false positives.
+
+```{r}
+
+lasso_predictions_prob = predict(lassoModel, recession_test, type="prob")
+head(lasso_predictions_prob)
+pred_m_lasso = prediction(lasso_predictions_prob$yes,recession_test$growthbucket)
+lasso_auc = performance(pred_m_lasso, measure = "auc")@y.values
+lasso_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, lasso_auc)
+
+
+```
+
+In this case the FPR is at 0 and is in accordance with the very high AUC.
+
+```{r}
+t = table(lassoPredictions,recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+
+```
+ 
+
+11. Ridge Logistic Regression with tuned hyper parameters ended up with lambda at 0.4
+
+
+```{r}
+
+set.seed(1)
+
+ridgeModel  = train(growthbucket~., data = recession_train, 
+                    trControl= trainControl("cv", number = 10, sampling = "smote"),
+                    preProcess=c("center","scale"), method = "glmnet", metric="Kappa",
+                    tuneGrid= expand.grid(alpha = 0, lambda = 10^seq(-3, 3, length = 100)), maxit=1000000)
+ridgeModel
+
+```
+
+The Kappa statistics of the ridge model is the same as Lasso so far at 0.30. However, one case was misclassified from no to yes. The FPR is still statistically
+
+```{r}
+
+#prediction on test data
+ridgePredictions  = predict(ridgeModel, recession_test)
+confusionMatrix(ridgePredictions, recession_test$growthbucket)
+
+
+```
+
+The AUC comes to be at 0.90 which is an outstanding classifier.
+
+```{r}
+
+ridge_predictions_prob = predict(ridgeModel, recession_test, type="prob")
+head(ridge_predictions_prob)
+pred_m_ridge = prediction(ridge_predictions_prob$yes,recession_test$growthbucket)
+ridge_auc = performance(pred_m_ridge, measure = "auc")@y.values
+ridge_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, ridge_auc)
+
+
+```
+
+The FPR is slightly higher at 0.01.
+
+```{r}
+t = table(ridgePredictions, recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+12. Enet Logistic Regression with tuned hyper parameters
+
+
+```{r}
+
+set.seed(1)
+
+enetModel  = train(growthbucket~., data = recession_train, 
+                   trControl= trainControl("cv", number = 10, sampling = "smote"),
+                   preProcess=c("center","scale"), method = "glmnet", metric="Kappa",
+                   tuneGrid= expand.grid(alpha =seq(0,1, length=10), lambda = 10^seq(-3, 3, length = 100)),                              maxit=1000000)
+enetModel
+
+```
+
+The Kappa statistics decreased to 0.23 in comparison to Lasso and Ridge. Since elastic net uses a combination of lasso and ridge, it is possible some of the feature elimination processes of lasso led to a loss of information. A model that eliminates features is not ideal given the high class imbalance.
+
+```{r}
+#prediction on test data
+enetPredictions  = predict(enetModel, recession_test)
+confusionMatrix(enetPredictions, recession_test$growthbucket)
+
+```
+
+The AUC is still high though at 0.86.
+
+```{r}
+
+enet_predictions_prob = predict(enetModel, recession_test, type="prob")
+head(enet_predictions_prob)
+pred_m_enet = prediction(enet_predictions_prob$yes,recession_test$growthbucket)
+enet_auc = performance(pred_m_enet, measure = "auc")@y.values
+enet_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, enet_auc)
+
+
+```
+
+The FPR for the model is at 0.02
+
+```{r}
+t = table(enetPredictions, recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+## Section 3.3 Ensemble Models
+
+13. Random Forest:
+
+```{r}
+set.seed(1)
+
+rfModel  = train(growthbucket~., data = recession_train, 
+                       trControl= trainControl("cv", number = 10, sampling = "smote"),
+                       method = "rf",  metric="Kappa", 
+                       tunegrid = expand.grid(mtry= c(2, 4, 8, 16)), Importance = "T", maxit=1000000)
+rfModel
+
+```
+
+
+Let's take a look at the variable importance which tells us which variable were deemed to be better predictors for the random forest model.
+```{r}
+
+varImp(rfModel)
+
+```
+
+The Kappa statistics for the random forest model is at 0.54, the highest so far indicating a moderate agreement between the actual and predicted values.
+
+```{r}
+#prediction on test data
+rfPredictions  = predict(rfModel, recession_test)
+confusionMatrix(rfPredictions, recession_test$growthbucket)
+
+```
+
+The AUC of 0.90 points to a model which is excellent at identifying positive values
+```{r}
+
+rf_predictions_prob = predict(rfModel, recession_test, type="prob")
+head(rf_predictions_prob)
+pred_m_rf = prediction(rf_predictions_prob$yes,recession_test$growthbucket)
+rf_auc = performance(pred_m_rf, measure = "auc")@y.values
+rf_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, rf_auc)
+
+
+```
+
+The FPR is at 0.02
+```{r}
+t = table(rfPredictions, recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+14. Gradient Boost
+
+```{r}
+set.seed(1)
+
+gbmModel  = train(growthbucket~., data = recession_train, 
+                   trControl= trainControl("cv", number = 10, sampling = "smote"),
+                   preProcess=c("center","scale"), method = "gbm", metric="Kappa")
+gbmModel
+
+```
+
+With the gradient boost model, the Kappa statistic is at 0.27 which is one of the lowest.
+
+```{r}
+
+#prediction on test data
+gbmPredictions  = predict(gbmModel, recession_test)
+confusionMatrix(gbmPredictions, recession_test$growthbucket)
+
+```
+
+The resulting AUC is at 0.82 indicating the model has an 82% chance of distinguishing between false positive and true positive.
+
+```{r}
+
+gbm_predictions_prob = predict(gbmModel, recession_test, type="prob")
+head(gbm_predictions_prob)
+pred_m_gbm = prediction(gbm_predictions_prob$yes,recession_test$growthbucket)
+gb_auc = performance(pred_m_gbm, measure = "auc")@y.values
+gb_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, gb_auc)
+
+
+```
+
+The FPR is at 0.03
+```{r}
+t = table(gbmPredictions, recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+15. ada boost
+
+```{r}
+
+set.seed(1)
+
+adaModel  = train(growthbucket~., data = recession_train, 
+                  trControl= trainControl("cv", number = 10, sampling = "smote"),
+                  preProcess=c("center","scale"), method = "adaboost", metric="Kappa")
+adaModel
+
+```
+
+The Kappa statistics for this model is at 0.39 and the second highest.
+
+```{r}
+#prediction on test data
+adaPredictions  = predict(adaModel, recession_test)
+confusionMatrix(adaPredictions, recession_test$growthbucket)
+
+
+```
+
+The AUC though is one of the lowest at 0.69
+
+```{r}
+
+ada_predictions_prob = predict(adaModel, recession_test, type="prob")
+head(ada_predictions_prob)
+pred_m_ada = prediction(ada_predictions_prob$yes,recession_test$growthbucket)
+ada_auc = performance(pred_m_ada, measure = "auc")@y.values
+ada_auc
+
+```
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, ada_auc)
+
+
+```
+
+The FPR is at 0.02
+```{r}
+t = table(adaPredictions, recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+16. Tree bag
+
+```{r}
+
+set.seed(1)
+
+treebagModel  = train(growthbucket~., data = recession_train, 
+                  trControl= trainControl("cv", number = 10, sampling = "smote"),
+                  preProcess=c("center","scale"), method = "treebag", nbagg = 25, metrics = "kappa")
+treebagModel
+
+```
+
+The kappa statistics is at 0.21
+
+```{r}
+#prediction on test data
+treebagpredictions  = predict(treebagModel, recession_test)
+confusionMatrix(treebagpredictions, recession_test$growthbucket)
+
+
+
+```
+
+The AUC in this case is at 0.84
+
+```{r}
+
+treebag_predictions_prob = predict(treebagModel, recession_test, type="prob")
+head(treebag_predictions_prob)
+pred_m_treebag = prediction(treebag_predictions_prob$yes,recession_test$growthbucket)
+treebag_auc = performance(pred_m_treebag, measure = "auc")@y.values
+treebag_auc
+
+```
+
+
+```{r}
+#keep track of AUC
+aucTotal = cbind(aucTotal, treebag_auc)
+
+
+
+```
+
+With the FPR at 0.02
+
+```{r}
+t = table(treebagpredictions, recession_test$growthbucket)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+
+17. Using the resamples() function, I was able to compare the Kappa statistics for all models used so far. The first thing to note is that the model with the highest kappa, Random Forest, doesn't have the highest mean Kappa for in-sample data. The second highest Kappa, adaboost had the second highest mean Kappa. The third highest mean Kappa was the ridge model which also had the third highest out of sample Kappa. The wide gap between the mean Kappa and out of sample of Kappa of the random forest model is a concern since the model does take a subset of features to build several decision trees. It could also mean that the model is biased toward the majority classifier. The high out of sample Kappa might be deceptive and affected by the class imbalance.
+
+The adaboost model so far is the best for this dataset. The model is more balanced with both in-sample and out-of-sample Kappa statistics as well as a high AUC.
+
+```{r}
+compare = resamples(list(k = knn_model, kpca = knn_modelPCA, nb = nbModel, nbpca = nbModelPCA, 
+                        l = lassoModel, r = ridgeModel, e = enetModel, 
+                        rf = rfModel, gbm = gbmModel, ada = adaModel, treeb = treebagModel   )  )
+
+summary(compare)
+
+```
+
+18. A comparison of all AUC confirms that the model with the highest Kappa so far, random forest, had he second highest value. Taken separately, these numbers would tell that the random forest is the best. However, the issue of class imbalance would affect the decision of which model is better.
+
+```{r}
+
+aucTotal
+
+
+```
+
+## Section 3.4 Neural Network Model
+
+19. Let's split the train set further into a train/validation set
+
+```{r}
+
+inTrain = createDataPartition(recession_train$growthbucket, p=0.9, list=FALSE)
+recession_val = recession_train[-inTrain,]
+recession_trainNeural = recession_train[inTrain,]
+
+```
+
+20. Scale all numeric variables except the outcome variable
+
+```{r}
+
+recession_trainScaled = scale(recession_trainNeural[-50])
+col_means_train = attr(recession_trainScaled, "scaled:center")
+col_stddevs_train = attr(recession_trainScaled, "scaled:scale")
+recession_valScaled = scale(recession_val[-50], center = col_means_train, scale = col_stddevs_train)
+recession_testScaled = scale(recession_test[-50], center = col_means_train, scale = col_stddevs_train)
+
+
+
+#label with the growthbucket to predict
+#Let's also change the label back to numeric so it can be fed to the neural network
+recession_trainScaledlabel = ifelse(recession_trainNeural$growthbucket=="no", 0, 1)
+recession_valScaledlabel = ifelse(recession_val$growthbucket=="no", 0, 1)
+recession_testScaledlabel = ifelse(recession_test$growthbucket=="no", 0, 1)
+
+```
+
+21. Let's build a simple neural network model. I will start with 2 hidden layers of 64 neurons each. There will be a drop out layer for each hidden layer with a drop out rate of 0.4. For this model, the AUC will be chosen as metric.
+
+```{r}
+library(keras)
+
+model  = keras_model_sequential() %>%
+  layer_dense(units = 64, activation = 'relu',input_shape= dim(recession_trainScaled)[2]) %>%
+  layer_dropout(0.4)%>%
+  layer_dense(units = 64, activation = 'relu') %>%
+  layer_dropout(0.4)%>%
+  layer_dense(units = 1, activation  = 'sigmoid')
+
+model %>% compile(loss = 'binary_crossentropy', optimizer = 'adam', metrics = c('AUC') )
+
+set.seed(128)
+history = model %>% fit(recession_trainScaled, recession_trainScaledlabel ,
+                         epochs = 50, batch_size=100,
+                        validation_data = list(recession_valScaled, recession_valScaledlabel)
+                        )
+
+
+```
+
+22. A plot of the model shows the AUC higher for the training than the validation.
+
+```{r}
+plot(history)
+
+
+```
+
+
+23. Let's auto tune the hyper parameters using flags
+```{r}
+install.packages("tfruns")
+library(tfruns)
+run = tuning_run("recessionFlags.R", flags = list(nodes1 = c(32, 64, 128, 196),drop_out1 = c(0.2, 0.3, 0.4, 0.5), nodes2 = c(32, 64, 128, 196),drop_out2 = c(0.2, 0.3, 0.4, 0.5), learning_rate= c(0.01, 0.05, 0.001, 0.0001), batch_size=c(50,100,250, 500),epochs=c(30,50,100),activation1=c("relu","sigmoid","tanh"), activation2 = "sigmoid"),
+                 sample = .005)
+
+
+```
+
+24. The model with the best run would be the one with the lowest validation loss and highest validation AUC. That model can be found at directory 142. 
+
+```{r}
+
+which.min(run$metric_val_loss)
+which.max(run$metric_val_auc)
+
+
+```
+25. A look at the RecessionBestRun curve shows that the AUC for the final model was 0.97 and the validation loss was 0.17. The auto tuned hyper parameter for that model were 32 neurons in the first hidden layer and 64 neurons in the second. The first drop out rate was 0.3 and the second was 0.2. The batch size and epochs were both at 100 with a learning rate of 0.05. Relu was used in the first activation function and sigmoid was the only option in the second activation function.
+
+```{r}
+
+view_run(run$run_dir[142])
+
+```
+
+26. Let's use the tuned parameters from the best run to build a new model that will be run on both the training and validation data combined. Then the model will be tested against the test data.
+
+```{r}
+
+#merge train and validation into one train set. Also merge the labels
+recessionMergedTrain = rbind(recession_trainScaled, recession_valScaled)
+recessionMergedTrainLabel = as.numeric(c(recession_trainScaledlabel, recession_valScaledlabel))
+
+model  = keras_model_sequential() %>%
+  layer_dense(units = 32, activation = 'relu',input_shape= dim(recession_trainScaled)[2]) %>%
+  layer_dropout(0.3)%>%
+  layer_dense(units = 64, activation = 'relu') %>%
+  layer_dropout(0.2)%>%
+  layer_dense(units = 1, activation  = 'sigmoid')
+
+model %>% compile(loss = 'binary_crossentropy', 
+                  optimizer = optimizer_adam(lr = 0.05), 
+                  metrics = c('AUC') )
+
+set.seed(128)
+history = model %>% fit(recessionMergedTrain, recessionMergedTrainLabel ,
+                         epochs = 100, batch_size=100,
+                        )
+
+```
+
+27. It appears that at around 10 epochs, the AUC stabilizes to anywhere between 0.93 and 0.99
+
+```{r}
+
+plot(history)
+
+```
+
+28. Let's evaluate the tuned model on the test data. Despite having a high AUC, this model did poorly on the out of sample data with a Kappa statistics of 0.09.
+
+```{r}
+
+#get the prediction class, change to factor then do a confusion matrix for the kappa
+class_pred = model %>% predict_classes(recession_testScaled)
+#let's also change back to no and yes for better readability
+t1 = as.factor( ifelse(class_pred==0, "no", "yes" ))
+t2 = as.factor(ifelse(recession_testScaledlabel==0, "no", "yes"))
+confusionMatrix(t1, t2)
+
+```
+
+29. Logically the FPR is the highest at 0.06
+
+```{r}
+
+t = table(t1, t2)
+FPR = t[1,2] / (t[1,2] + t[1,1]) #false positive rate
+FNR = t[2,1] / (t[2,1] + t[2,2]) #false negative rate
+error = (t[1,2] + t[2,1]) / (t[1,1] + t[1,2] + t[2,1] + t[2,2])
+
+FPR
+FNR
+error
+
+```
+
+
